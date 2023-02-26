@@ -1,0 +1,17 @@
+project_name: intellij-hcl-schema
+
+builds:
+  - binary: intellij-hcl-schema
+    goos:
+      - windows
+      - darwin
+      - linux
+    env:
+      - CGO_ENABLED=0
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}

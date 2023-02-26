@@ -1,0 +1,23 @@
+name: Tag
+run-name: ${{ github.ref_name }} tag
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  bump:
+    if: "!startsWith(github.event.head_commit.message, 'bump:')"
+    name: "Bump version"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          token: "${{ secrets.RELEASE_GITHUB_TOKEN }}"
+      - id: cz
+        name: Create bump and changelog
+        uses: commitizen-tools/commitizen-action@master
+        with:
+          github_token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+      - run: echo "Bumped to version ${{ steps.cz.outputs.version }}"

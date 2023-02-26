@@ -1,0 +1,28 @@
+name: Release
+run-name: ${{ github.ref_name }} release 🚀
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  release:
+    name: "Create release"
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggered by a ${{ github.event_name }} event on ${{ runner.os }}."
+      - name: Check out repository code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v3
+      - run: go version
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+      - run: echo "🎉 Completed 🎉"

@@ -1,0 +1,21 @@
+name: Test
+run-name: ${{ github.ref_name }} test
+on:
+  push:
+    branches:
+      - '*'
+      - '!main'
+jobs:
+  test:
+    name: "Verify"
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggered by a ${{ github.event_name }} event on ${{ runner.os }}."
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+      - run: go version
+      - run: go fmt ./...
+      - run: go vet ./...
+      - run: echo "OK"
