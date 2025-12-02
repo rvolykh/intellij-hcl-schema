@@ -1,5 +1,13 @@
 # intellij-hcl-schema **(UNOFFICIAL)**
 
+> **DEPRECATED**:
+>
+> This approach does not work anymore (at least with lastest PyCharm).
+> The right approach would be to run terraform init, so that .terraform.d folder is created
+> inside your terraform root/module and then IDEA can obtain schemas on its own.
+
+----
+
 Helper to build terraform provider autocompletion for Intellij HCL plugin.
 It starts the provider, gets it schema using GRPC, saves to $HOME/.terraform.d/metadata-repo/terraform/model/providers
 (path from which Intellij HCL plugin loads custom providers schemas)
