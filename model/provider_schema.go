@@ -1,4 +1,4 @@
-package intellij
+package model
 
 type ProviderSchema struct {
 	Name        string                `json:"name"`

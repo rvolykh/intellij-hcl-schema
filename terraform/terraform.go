@@ -2,57 +2,50 @@ package terraform
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
+	"errors"
 
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
-	"github.com/rvolykh/intellij-hcl-schema/proto"
-	"google.golang.org/grpc"
+	"github.com/rvolykh/intellij-hcl-schema/model"
 )
 
-func GetProviderSchema(ctx context.Context, pluginPath string) (*proto.GetProviderSchema_Response, error) {
-	handshake := plugin.HandshakeConfig{
-		ProtocolVersion:  5,
-		MagicCookieKey:   "TF_PLUGIN_MAGIC_COOKIE",
-		MagicCookieValue: "d602bf8f470bc67ca7faa0386276bbdd4330efaf76d1a219cb4d6991ca9872b2",
+const (
+	// Maximum response size for schema request, 256MB
+	maxRecvSize = 256 << 20
+	// Number of protocol versions supported, must match number of goroutines
+	protocolsCount = 2
+)
+
+type (
+	result struct {
+		err    error
+		schema *model.ProviderSchema
 	}
 
-	pluginClient := plugin.NewClient(
-		&plugin.ClientConfig{
-			Cmd:              exec.Command(pluginPath),
-			HandshakeConfig:  handshake,
-			AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-			Managed:          true,
-			Logger:           hclog.NewNullLogger(),
-			Plugins: map[string]plugin.Plugin{
-				"provider": &GRPCPlugin{},
-			},
-		},
-	)
-	defer pluginClient.Kill()
+	getProviderSchemaFunc func(ctx context.Context, pluginPath string) (*model.ProviderSchema, error)
+)
 
-	protocolClient, err := pluginClient.Client()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start provider: %w", err)
+func GetProviderSchema(ctx context.Context, pluginPath string) (*model.ProviderSchema, error) {
+	var resultCh = make(chan result, protocolsCount)
+	defer close(resultCh)
+
+	run := func(fn getProviderSchemaFunc) {
+		schema, err := fn(ctx, pluginPath)
+		resultCh <- result{err: err, schema: schema}
 	}
 
-	rawProviderClient, err := protocolClient.Dispense("provider")
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup client for provider: %w", err)
+	// must match protocolsCount
+	go run(getProviderSchemaV5)
+	go run(getProviderSchemaV6)
+
+	var err = errors.New("multiple errors occurred")
+	for received := 0; received < protocolsCount; received++ {
+		res := <-resultCh
+		if res.err != nil {
+			err = errors.Join(err, res.err)
+			continue
+		}
+
+		return res.schema, nil
 	}
 
-	grpcProviderClient := rawProviderClient.(proto.ProviderClient)
-
-	request := new(proto.GetProviderSchema_Request)
-	options := []grpc.CallOption{
-		grpc.MaxRecvMsgSizeCallOption{MaxRecvMsgSize: maxRecvSize},
-	}
-
-	resp, err := grpcProviderClient.GetSchema(ctx, request, options...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get provider schema: %w", err)
-	}
-
-	return resp, nil
+	return nil, err
 }
